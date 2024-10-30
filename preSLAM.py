@@ -16,8 +16,8 @@ imgpoints1 = []  # 2D points in image plane for camera 1
 imgpoints2 = []  # 2D points in image plane for camera 2
 
 # Capture images from both webcams
-cap1 = cv2.VideoCapture(0)  # Left camera
-cap2 = cv2.VideoCapture(1)  # Right camera
+cam1 = cv2.VideoCapture(0)  # Left camera
+cam2 = cv2.VideoCapture(1)  # Right camera
 
 # Capture images for calibration
 for i in range(30):
@@ -122,6 +122,6 @@ while True:
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
-cap1.release()
-cap2.release()
+cam1.release()
+cam2.release()
 cv2.destroyAllWindows()
