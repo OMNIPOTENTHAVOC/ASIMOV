@@ -21,8 +21,8 @@ cam2 = cv2.VideoCapture(1)  # Right camera
 
 # Capture images for calibration
 for i in range(30):
-    ret1, frame1 = cap1.read()
-    ret2, frame2 = cap2.read()
+    ret1, frame1 = cam1.read()
+    ret2, frame2 = cam2.read()
     
     if not ret1 or not ret2:
         print("Failed to capture images.")
