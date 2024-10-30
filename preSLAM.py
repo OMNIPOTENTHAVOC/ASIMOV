@@ -48,8 +48,8 @@ for i in range(30):
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
-cap1.release()
-cap2.release()
+cam1.release()
+cam2.release()
 cv2.destroyAllWindows()
 
 # Camera calibration and stereo rectification
@@ -63,8 +63,8 @@ _, _, _, _, _, R, T, _, _ = cv2.stereoCalibrate(
 R1, R2, P1, P2, Q, _, _ = cv2.stereoRectify(mtx1, dist1, mtx2, dist2, gray1.shape[::-1], R, T, flags=cv2.CALIB_RECTIFY_USE_INTRINSIC)
 
 # Capture a pair of rectified images
-cap1 = cv2.VideoCapture(0)
-cap2 = cv2.VideoCapture(1)
+cam1 = cv2.VideoCapture(0)
+cam2 = cv2.VideoCapture(1)
 
 while True:
     ret1, frame1 = cap1.read()
