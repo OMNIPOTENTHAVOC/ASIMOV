@@ -57,10 +57,10 @@ ret, mtx1, dist1, rvecs1, tvecs1 = cv2.calibrateCamera(objpoints, imgpoints1, gr
 ret, mtx2, dist2, rvecs2, tvecs2 = cv2.calibrateCamera(objpoints, imgpoints2, gray2.shape[::-1], None, None)
 
 _, _, _, _, _, R, T, _, _ = cv2.stereoCalibrate(
-    objpoints, imgpoints1, imgpoints2, mtx1, dist1, mtx2, dist2, gray1.shape[::-1], flags=cv2.CALIB_FIX_INTRINSIC)
+    objpoints, imgpoints1, imgpoints2, mtx1, dist1, mtx2, dist2, gray1.shape[::-1], flags=cv2.CALIB_FIX_INTRINSIC_K)
 
 # Stereo rectification transformation
-R1, R2, P1, P2, Q, _, _ = cv2.stereoRectify(mtx1, dist1, mtx2, dist2, gray1.shape[::-1], R, T, flags=cv2.CALIB_ZERO_DISPARITY)
+R1, R2, P1, P2, Q, _, _ = cv2.stereoRectify(mtx1, dist1, mtx2, dist2, gray1.shape[::-1], R, T, flags=cv2.CALIB_RECTIFY_USE_INTRINSIC)
 
 # Capture a pair of rectified images
 cap1 = cv2.VideoCapture(0)
