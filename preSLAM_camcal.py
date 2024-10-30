@@ -85,7 +85,41 @@ while True:
     rectified1 = cv2.remap(frame1, map1x, map1y, cv2.INTER_LINEAR)
     rectified2 = cv2.remap(frame2, map2x, map2y, cv2.INTER_LINEAR)
 
-    # ... (Rest of your code for disparity map calculation, 3D point cloud generation, etc.)
+    # Convert to grayscale for disparity calculation
+    gray_left = cv2.cvtColor(rectified1, cv2.COLOR_BGR2GRAY)
+    gray_right = cv2.cvtColor(rectified2, cv2.COLOR_BGR2GRAY)
+
+    # Compute the disparity map
+    stereo = cv2.StereoBM_create(numDisparities=16*5, blockSize=15)  # Adjust parameters as needed
+    disparity = stereo.compute(gray_left, gray_right)
+
+    # Normalize disparity for visualization
+    disparity_visual = cv2.normalize(disparity, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+    disparity_visual = np.uint8(disparity_visual)
+    cv2.imshow("Disparity Map", disparity_visual)
+
+    # Reproject points to 3D
+    points_3D = cv2.reprojectImageTo3D(disparity, Q)
+
+    # Filter points with a meaningful disparity value
+    mask = disparity > disparity.min()
+    output_points = points_3D[mask]
+    colors = rectified1[mask]
+
+    # Save to PLY format
+    def write_ply(filename, vertices, colors):
+        vertices = vertices.reshape(-1, 3)
+        colors = colors.reshape(-1, 3)
+        with open(filename, 'w') as f:
+            f.write("ply\nformat ascii 1.0\n")
+            f.write(f"element vertex {len(vertices)}\n")
+            f.write("property float x\nproperty float y\nproperty float z\n")
+            f.write("property uchar red\nproperty uchar green\nproperty uchar blue\nend_header\n")
+            for i in range(len(vertices)):
+                f.write(f"{vertices[i, 0]} {vertices[i, 1]} {vertices[i, 2]} "
+                         f"{colors[i, 0]} {colors[i, 1]} {colors[i, 2]}\n")
+
+    write_ply("point_cloud.ply", output_points, colors)
 
     cv2.imshow('Rectified Left', rectified1)
     cv2.imshow('Rectified Right', rectified2)
