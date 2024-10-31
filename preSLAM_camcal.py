@@ -52,8 +52,8 @@ while frames_captured < num_images_to_capture:
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
-cam1.release()
-cam2.release()
+cap1.release()
+cap2.release()
 cv2.destroyAllWindows()
 
 # Camera calibration and stereo rectification
@@ -61,12 +61,15 @@ ret, mtx1, dist1, rvecs1, tvecs1 = cv2.calibrateCamera(objpoints, imgpoints1, fr
 ret, mtx2, dist2, rvecs2, tvecs2 = cv2.calibrateCamera(objpoints, imgpoints2, frame2.shape[::-1], None, None)
 
 _, _, _, _, _, R, T, _, _ = cv2.stereoCalibrate(
-    objpoints, imgpoints1, imgpoints2, mtx1, dist1, mtx2, dist2, frame1.shape[::-1], flags=cv2.CALIB_FIX_INTRINSIC_K)
+    objpoints, imgpoints1, imgpoints2, mtx1, dist1, mtx2, dist2, frame1.shape[::-1], flags=cv2.CALIB_FIX_INTRINSIC)
 
 # Stereo rectification transformation
 R1, R2, P1, P2, Q, _, _ = cv2.stereoRectify(mtx1, dist1, mtx2, dist2, frame1.shape[::-1], R, T, flags=cv2.CALIB_RECTIFY_USE_INTRINSIC)
 
-# Capture a pair of rectified images
+# Initialize ORB detector
+orb = cv2.ORB_create()
+
+# Reopen cameras for rectified capture and feature matching
 cap1 = cv2.VideoCapture(0)
 cap2 = cv2.VideoCapture(1)
 
@@ -85,23 +88,30 @@ while True:
     rectified1 = cv2.remap(frame1, map1x, map1y, cv2.INTER_LINEAR)
     rectified2 = cv2.remap(frame2, map2x, map2y, cv2.INTER_LINEAR)
 
-    # Convert to grayscale for disparity calculation
+    # Convert to grayscale for feature extraction and matching
     gray_left = cv2.cvtColor(rectified1, cv2.COLOR_BGR2GRAY)
     gray_right = cv2.cvtColor(rectified2, cv2.COLOR_BGR2GRAY)
 
+    # Feature detection and matching
+    keypoints1, descriptors1 = orb.detectAndCompute(gray_left, None)
+    keypoints2, descriptors2 = orb.detectAndCompute(gray_right, None)
+    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+    matches = bf.match(descriptors1, descriptors2)
+    matches = sorted(matches, key=lambda x: x.distance)
+
+    # Draw matches
+    matched_image = cv2.drawMatches(rectified1, keypoints1, rectified2, keypoints2, matches[:50], None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+
     # Compute the disparity map
-    stereo = cv2.StereoBM_create(numDisparities=16*5, blockSize=15)  # Adjust parameters as needed
+    stereo = cv2.StereoBM_create(numDisparities=16*5, blockSize=15)
     disparity = stereo.compute(gray_left, gray_right)
 
     # Normalize disparity for visualization
     disparity_visual = cv2.normalize(disparity, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
     disparity_visual = np.uint8(disparity_visual)
-    cv2.imshow("Disparity Map", disparity_visual)
 
     # Reproject points to 3D
     points_3D = cv2.reprojectImageTo3D(disparity, Q)
-
-    # Filter points with a meaningful disparity value
     mask = disparity > disparity.min()
     output_points = points_3D[mask]
     colors = rectified1[mask]
@@ -121,6 +131,9 @@ while True:
 
     write_ply("point_cloud.ply", output_points, colors)
 
+    # Display
+    cv2.imshow("Feature Matches", matched_image)
+    cv2.imshow("Disparity Map", disparity_visual)
     cv2.imshow('Rectified Left', rectified1)
     cv2.imshow('Rectified Right', rectified2)
 
