@@ -92,9 +92,11 @@ while True:
     gray_left = cv2.cvtColor(rectified1, cv2.COLOR_BGR2GRAY)
     gray_right = cv2.cvtColor(rectified2, cv2.COLOR_BGR2GRAY)
 
-    # Feature detection and matching
+    # Feature detection and matching using ORB
     keypoints1, descriptors1 = orb.detectAndCompute(gray_left, None)
     keypoints2, descriptors2 = orb.detectAndCompute(gray_right, None)
+    
+    # Match features using BFMatcher
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
     matches = bf.match(descriptors1, descriptors2)
     matches = sorted(matches, key=lambda x: x.distance)
@@ -131,9 +133,9 @@ while True:
         if len(src_pts_filtered) >= 4:
             success, rvec, tvec = cv2.solvePnP(dst_pts_3D_filtered, src_pts_filtered, mtx1, dist1)
             if success:
-                print(f"Rotation Vector: {rvec.flatten()}\nTranslation Vector: {tvec.flatten()}")  # Flatten for easier viewing
+                print(f"Rotation Vector: {rvec}\nTranslation Vector: {tvec}")
 
-    # Display
+    # Display results
     cv2.imshow("Feature Matches", matched_image)
     cv2.imshow("Disparity Map", disparity_visual)
     cv2.imshow('Rectified Left', rectified1)
