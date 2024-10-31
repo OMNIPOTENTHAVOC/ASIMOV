@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import gtsam
 from gtsam import Pose3, Rot3, Point3
+import open3d as o3d  # Import Open3D for point cloud handling
 
 # Define the dimensions of the checkerboard
 CHECKERBOARD_SIZE = (9, 6)  # Adjust to your checkerboard size
@@ -66,7 +67,7 @@ _, _, _, _, _, R, T, _, _ = cv2.stereoCalibrate(
     objpoints, imgpoints1, imgpoints2, mtx1, dist1, mtx2, dist2, frame1.shape[::-1], flags=cv2.CALIB_FIX_INTRINSIC)
 
 # Stereo rectification transformation
-R1, R2, P1, P2, Q, _, _ = cv2.stereoRectify(mtx1, dist1, mtx2, dist2, frame1.shape[::-1], R, T, flags=cv2.CALIB_RECTIFY_USE_INTRINSIC)
+R1, R2, P1, P2, Q, _, _ = cv2.stereoRectify(mtx1, dist1, mtx2, dist2, frame1.shape[::-1], R, T)
 
 # Initialize ORB detector
 orb = cv2.ORB_create()
@@ -81,6 +82,9 @@ initial_estimate = gtsam.Values()
 
 # Unique identifier for pose
 pose_id = 0
+
+# Lists for storing point cloud data
+point_cloud_data = []
 
 while True:
     ret1, frame1 = cap1.read()
@@ -156,10 +160,9 @@ while True:
                 pose_id += 1
 
                 # Add loop closure logic (example using nearest neighbor)
-                # Note: This is a basic loop closure, further refinement needed for real scenarios
                 if pose_id > 1:
                     for id in range(pose_id - 1):
-                        if np.linalg.norm(np.array([tvec[0], tvec[1]]) - np.array(initial_estimate.atPose3(id).translation().toArray()[:2])) < 0.5:  # 0.5m threshold
+                        if np.linalg.norm(np.array([tvec[0], tvec[1]]) - np.array(initial_estimate.atPose3(id).translation().toArray()[:2])) < 0.5:
                             graph.add(gtsam.BetweenFactorPose3(id, pose_id, pose.between(initial_estimate.atPose3(id)), gtsam.noiseModel.Isotropic.Sigma(6, 0.1)))
                 
                 # Optimize the graph
@@ -168,10 +171,15 @@ while True:
                 
                 # Display results (optional)
                 for i in range(pose_id):
-                    print(f"Pose {i}: {result.atPose3(i)}")
+                    print(f"Pose {i}: {result.atPose3(i).translation()}")
 
-    cv2.imshow("Matched Features", matched_image)
-    cv2.imshow("Disparity", disparity_visual)
+    # Prepare point cloud data
+    for pt in dst_pts_3D_filtered:
+        point_cloud_data.append(pt)
+
+    # Show the matched image and disparity
+    cv2.imshow('Matched Features', matched_image)
+    cv2.imshow('Disparity', disparity_visual)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
@@ -179,3 +187,20 @@ while True:
 cap1.release()
 cap2.release()
 cv2.destroyAllWindows()
+
+# Generate and save the PLY file
+def save_point_cloud(points, filename):
+    points = np.array(points)
+    colors = np.zeros_like(points)  # Optional: Assign colors if needed
+    colors[:, 0] = 255  # Set all points to red for visualization
+
+    # Create Open3D point cloud object
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points)
+    pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)  # Normalize colors
+
+    # Save to .PLY file
+    o3d.io.write_point_cloud(filename, pcd)
+
+# Call the save function
+save_point_cloud(point_cloud_data, "point_cloud.ply")
