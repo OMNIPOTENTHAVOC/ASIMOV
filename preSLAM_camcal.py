@@ -110,13 +110,21 @@ while True:
     disparity_visual = cv2.normalize(disparity, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
     disparity_visual = np.uint8(disparity_visual)
 
+    # Set depth range for filtering (adjust these values as needed)
+    min_depth = 0.1  # Minimum depth threshold in meters
+    max_depth = 2.0  # Maximum depth threshold in meters
+
     # Reproject points to 3D
     points_3D = cv2.reprojectImageTo3D(disparity, Q)
-    mask = disparity > disparity.min()
-    output_points = points_3D[mask]
-    colors = rectified1[mask]
 
-    # Save to PLY format
+    # Create a mask for valid disparity points and filter by depth range
+    mask = (disparity > disparity.min()) & (points_3D[:, :, 2] > min_depth) & (points_3D[:, :, 2] < max_depth)
+
+    # Apply mask to 3D points and colors
+    filtered_points = points_3D[mask]
+    filtered_colors = rectified1[mask]
+
+    # Save filtered points to PLY
     def write_ply(filename, vertices, colors):
         vertices = vertices.reshape(-1, 3)
         colors = colors.reshape(-1, 3)
@@ -129,7 +137,7 @@ while True:
                 f.write(f"{vertices[i, 0]} {vertices[i, 1]} {vertices[i, 2]} "
                          f"{colors[i, 0]} {colors[i, 1]} {colors[i, 2]}\n")
 
-    write_ply("point_cloud.ply", output_points, colors)
+    write_ply("filtered_point_cloud.ply", filtered_points, filtered_colors)
 
     # Display
     cv2.imshow("Feature Matches", matched_image)
