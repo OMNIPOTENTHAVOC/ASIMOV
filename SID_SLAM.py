@@ -1,7 +1,8 @@
 import cv2
 import numpy as np
 import gtsam
-from gtsam import Pose2, Point3
+from gtsam import Pose2, Point3, PinholeCameraCal3_S2
+from gtsam import NonlinearFactorGraph, Values, Pose3, BetweenFactorPose3, PriorFactorPose3
 
 # Define the dimensions of the checkerboard
 CHECKERBOARD_SIZE = (9, 6)  # Adjust to your checkerboard size
@@ -75,10 +76,10 @@ orb = cv2.ORB_create()
 cap1 = cv2.VideoCapture(0)
 cap2 = cv2.VideoCapture(1)
 
-# Initialize GTSAM variables for optimization
-graph = gtsam.NonlinearFactorGraph()
-initial_estimate = gtsam.Values()
-previous_pose = None
+# GTSAM setup
+graph = NonlinearFactorGraph()
+initial_estimate = Values()
+key_count = 0  # For unique keys in GTSAM
 
 while True:
     ret1, frame1 = cap1.read()
@@ -102,7 +103,7 @@ while True:
     # Feature detection and matching using ORB
     keypoints1, descriptors1 = orb.detectAndCompute(gray_left, None)
     keypoints2, descriptors2 = orb.detectAndCompute(gray_right, None)
-    
+
     # Match features using BFMatcher
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
     matches = bf.match(descriptors1, descriptors2)
@@ -145,28 +146,36 @@ while True:
                 # Convert rotation vector to rotation matrix
                 R, _ = cv2.Rodrigues(rvec)
 
-                # Create a GTSAM pose from the rotation and translation
-                current_pose = Pose2(tvec[0], tvec[1])  # Only 2D for simplicity, use Point3 for 3D
-                current_index = len(initial_estimate)  # Use index to store in GTSAM
+                # Create a GTSAM pose from the translation vector and rotation matrix
+                translation = Point3(tvec[0], tvec[1], tvec[2])
+                rotation = gtsam.Rot3(R)  # Convert to GTSAM rotation
 
-                # Add a new factor and initial estimate for GTSAM
-                graph.add(gtsam.BetweenFactorPose2(current_index - 1, current_index, current_pose, gtsam.noiseModel.Diagonal.Sigmas(np.array([0.1, 0.1, 0.1]))))
-                initial_estimate.insert(current_index, current_pose)
+                # Create a pose from the translation and rotation
+                pose = Pose3(rotation, translation)
 
-                # Perform optimization
-                optimizer = gtsam.LevenbergMarquardtOptimizer(graph, initial_estimate)
-                optimized = optimizer.optimize()
-                
-                # You can save or use the optimized poses
-                for i in range(optimized.size()):
-                    pose = optimized.atPose2(i)
-                    print(f"Pose {i}: {pose}")
+                # Add prior factor for the first pose
+                if key_count == 0:
+                    graph.add(PriorFactorPose3(key_count, pose, gtsam.noiseModel.Diagonal.Sigmas(np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1]))))
+                else:
+                    # Add between factor for the new pose
+                    graph.add(BetweenFactorPose3(key_count - 1, key_count, pose.between(initial_estimate.atPose3(key_count - 1)), gtsam.noiseModel.Diagonal.Sigmas(np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1]))))
 
-    # Display results
-    cv2.imshow("Feature Matches", matched_image)
-    cv2.imshow("Disparity Map", disparity_visual)
-    cv2.imshow('Rectified Left', rectified1)
-    cv2.imshow('Rectified Right', rectified2)
+                # Add the pose to the initial estimate
+                initial_estimate.insert(key_count, pose)
+                key_count += 1
+
+        # Optimize the graph
+        optimizer = gtsam.LevenbergMarquardtOptimizer(graph, initial_estimate)
+        optimized_estimate = optimizer.optimize()
+
+        # Optionally: visualize the optimized poses here if desired
+        for i in range(optimized_estimate.size()):
+            optimized_pose = optimized_estimate.atPose3(i)
+            print(f"Optimized Pose {i}: {optimized_pose}")
+
+    # Display images
+    cv2.imshow('Matched Features', matched_image)
+    cv2.imshow('Disparity Map', disparity_visual)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
