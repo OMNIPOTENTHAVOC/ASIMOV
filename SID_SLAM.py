@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+import gtsam
+from gtsam import Pose2, Point3
 
 # Define the dimensions of the checkerboard
 CHECKERBOARD_SIZE = (9, 6)  # Adjust to your checkerboard size
@@ -73,6 +75,11 @@ orb = cv2.ORB_create()
 cap1 = cv2.VideoCapture(0)
 cap2 = cv2.VideoCapture(1)
 
+# Initialize GTSAM variables for optimization
+graph = gtsam.NonlinearFactorGraph()
+initial_estimate = gtsam.Values()
+previous_pose = None
+
 while True:
     ret1, frame1 = cap1.read()
     ret2, frame2 = cap2.read()
@@ -134,6 +141,26 @@ while True:
             success, rvec, tvec = cv2.solvePnP(dst_pts_3D_filtered, src_pts_filtered, mtx1, dist1)
             if success:
                 print(f"Rotation Vector: {rvec}\nTranslation Vector: {tvec}")
+
+                # Convert rotation vector to rotation matrix
+                R, _ = cv2.Rodrigues(rvec)
+
+                # Create a GTSAM pose from the rotation and translation
+                current_pose = Pose2(tvec[0], tvec[1])  # Only 2D for simplicity, use Point3 for 3D
+                current_index = len(initial_estimate)  # Use index to store in GTSAM
+
+                # Add a new factor and initial estimate for GTSAM
+                graph.add(gtsam.BetweenFactorPose2(current_index - 1, current_index, current_pose, gtsam.noiseModel.Diagonal.Sigmas(np.array([0.1, 0.1, 0.1]))))
+                initial_estimate.insert(current_index, current_pose)
+
+                # Perform optimization
+                optimizer = gtsam.LevenbergMarquardtOptimizer(graph, initial_estimate)
+                optimized = optimizer.optimize()
+                
+                # You can save or use the optimized poses
+                for i in range(optimized.size()):
+                    pose = optimized.atPose2(i)
+                    print(f"Pose {i}: {pose}")
 
     # Display results
     cv2.imshow("Feature Matches", matched_image)
