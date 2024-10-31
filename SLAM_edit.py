@@ -131,7 +131,7 @@ while True:
         if len(src_pts_filtered) >= 4:
             success, rvec, tvec = cv2.solvePnP(dst_pts_3D_filtered, src_pts_filtered, mtx1, dist1)
             if success:
-                print(f"Rotation Vector: {rvec}\nTranslation Vector: {tvec}")
+                print(f"Rotation Vector: {rvec.flatten()}\nTranslation Vector: {tvec.flatten()}")  # Flatten for easier viewing
 
     # Display
     cv2.imshow("Feature Matches", matched_image)
