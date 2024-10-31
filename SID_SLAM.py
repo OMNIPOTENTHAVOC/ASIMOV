@@ -1,8 +1,7 @@
 import cv2
 import numpy as np
 import gtsam
-from gtsam import Pose2, Point3, PinholeCameraCal3_S2
-from gtsam import NonlinearFactorGraph, Values, Pose3, BetweenFactorPose3, PriorFactorPose3
+from gtsam import Pose3, Rot3, Point3
 
 # Define the dimensions of the checkerboard
 CHECKERBOARD_SIZE = (9, 6)  # Adjust to your checkerboard size
@@ -76,10 +75,12 @@ orb = cv2.ORB_create()
 cap1 = cv2.VideoCapture(0)
 cap2 = cv2.VideoCapture(1)
 
-# GTSAM setup
-graph = NonlinearFactorGraph()
-initial_estimate = Values()
-key_count = 0  # For unique keys in GTSAM
+# Initialize GTSAM
+graph = gtsam.NonlinearFactorGraph()
+initial_estimate = gtsam.Values()
+
+# Unique identifier for pose
+pose_id = 0
 
 while True:
     ret1, frame1 = cap1.read()
@@ -113,7 +114,7 @@ while True:
     matched_image = cv2.drawMatches(rectified1, keypoints1, rectified2, keypoints2, matches[:50], None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
 
     # Compute the disparity map
-    stereo = cv2.StereoBM_create(numDisparities=16*5, blockSize=15)
+    stereo = cv2.StereoBM_create(numDisparities=16 * 5, blockSize=15)
     disparity = stereo.compute(gray_left, gray_right)
 
     # Normalize disparity for visualization
@@ -141,41 +142,36 @@ while True:
         if len(src_pts_filtered) >= 4:
             success, rvec, tvec = cv2.solvePnP(dst_pts_3D_filtered, src_pts_filtered, mtx1, dist1)
             if success:
-                print(f"Rotation Vector: {rvec}\nTranslation Vector: {tvec}")
-
                 # Convert rotation vector to rotation matrix
-                R, _ = cv2.Rodrigues(rvec)
+                R_mat, _ = cv2.Rodrigues(rvec)
+                
+                # Convert to GTSAM Pose3
+                pose = Pose3(Rot3(R_mat), Point3(tvec[0], tvec[1], tvec[2]))
+                
+                # Add prior and odometry to GTSAM
+                graph.add(gtsam.PriorFactorPose3(pose_id, pose, gtsam.noiseModel.Isotropic.Sigma(6, 0.1)))
+                initial_estimate.insert(pose_id, pose)
+                
+                # Increment pose ID for next estimation
+                pose_id += 1
 
-                # Create a GTSAM pose from the translation vector and rotation matrix
-                translation = Point3(tvec[0], tvec[1], tvec[2])
-                rotation = gtsam.Rot3(R)  # Convert to GTSAM rotation
+                # Add loop closure logic (example using nearest neighbor)
+                # Note: This is a basic loop closure, further refinement needed for real scenarios
+                if pose_id > 1:
+                    for id in range(pose_id - 1):
+                        if np.linalg.norm(np.array([tvec[0], tvec[1]]) - np.array(initial_estimate.atPose3(id).translation().toArray()[:2])) < 0.5:  # 0.5m threshold
+                            graph.add(gtsam.BetweenFactorPose3(id, pose_id, pose.between(initial_estimate.atPose3(id)), gtsam.noiseModel.Isotropic.Sigma(6, 0.1)))
+                
+                # Optimize the graph
+                optimizer = gtsam.LevenbergMarquardtOptimizer(graph, initial_estimate)
+                result = optimizer.optimize()
+                
+                # Display results (optional)
+                for i in range(pose_id):
+                    print(f"Pose {i}: {result.atPose3(i)}")
 
-                # Create a pose from the translation and rotation
-                pose = Pose3(rotation, translation)
-
-                # Add prior factor for the first pose
-                if key_count == 0:
-                    graph.add(PriorFactorPose3(key_count, pose, gtsam.noiseModel.Diagonal.Sigmas(np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1]))))
-                else:
-                    # Add between factor for the new pose
-                    graph.add(BetweenFactorPose3(key_count - 1, key_count, pose.between(initial_estimate.atPose3(key_count - 1)), gtsam.noiseModel.Diagonal.Sigmas(np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1]))))
-
-                # Add the pose to the initial estimate
-                initial_estimate.insert(key_count, pose)
-                key_count += 1
-
-        # Optimize the graph
-        optimizer = gtsam.LevenbergMarquardtOptimizer(graph, initial_estimate)
-        optimized_estimate = optimizer.optimize()
-
-        # Optionally: visualize the optimized poses here if desired
-        for i in range(optimized_estimate.size()):
-            optimized_pose = optimized_estimate.atPose3(i)
-            print(f"Optimized Pose {i}: {optimized_pose}")
-
-    # Display images
-    cv2.imshow('Matched Features', matched_image)
-    cv2.imshow('Disparity Map', disparity_visual)
+    cv2.imshow("Matched Features", matched_image)
+    cv2.imshow("Disparity", disparity_visual)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
