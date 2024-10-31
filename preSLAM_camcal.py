@@ -92,9 +92,11 @@ while True:
     gray_left = cv2.cvtColor(rectified1, cv2.COLOR_BGR2GRAY)
     gray_right = cv2.cvtColor(rectified2, cv2.COLOR_BGR2GRAY)
 
-    # Feature detection and matching
+    # Feature detection and matching using ORB
     keypoints1, descriptors1 = orb.detectAndCompute(gray_left, None)
     keypoints2, descriptors2 = orb.detectAndCompute(gray_right, None)
+    
+    # Match features using BFMatcher
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
     matches = bf.match(descriptors1, descriptors2)
     matches = sorted(matches, key=lambda x: x.distance)
@@ -117,29 +119,23 @@ while True:
     # Reproject points to 3D
     points_3D = cv2.reprojectImageTo3D(disparity, Q)
 
-    # Create a mask for valid disparity points and filter by depth range
-    mask = (disparity > disparity.min()) & (points_3D[:, :, 2] > min_depth) & (points_3D[:, :, 2] < max_depth)
+    # Extract 3D points and corresponding 2D points for PnP
+    if len(matches) > 0:
+        src_pts = np.float32([keypoints1[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
+        dst_pts_3D = points_3D[src_pts[:, 0, 1].astype(int), src_pts[:, 0, 0].astype(int)]
 
-    # Apply mask to 3D points and colors
-    filtered_points = points_3D[mask]
-    filtered_colors = rectified1[mask]
+        # Filter points within depth range
+        mask_depth = (dst_pts_3D[:, 2] > min_depth) & (dst_pts_3D[:, 2] < max_depth)
+        dst_pts_3D_filtered = dst_pts_3D[mask_depth]
+        src_pts_filtered = src_pts[mask_depth]
 
-    # Save filtered points to PLY
-    def write_ply(filename, vertices, colors):
-        vertices = vertices.reshape(-1, 3)
-        colors = colors.reshape(-1, 3)
-        with open(filename, 'w') as f:
-            f.write("ply\nformat ascii 1.0\n")
-            f.write(f"element vertex {len(vertices)}\n")
-            f.write("property float x\nproperty float y\nproperty float z\n")
-            f.write("property uchar red\nproperty uchar green\nproperty uchar blue\nend_header\n")
-            for i in range(len(vertices)):
-                f.write(f"{vertices[i, 0]} {vertices[i, 1]} {vertices[i, 2]} "
-                         f"{colors[i, 0]} {colors[i, 1]} {colors[i, 2]}\n")
+        # Run solvePnP if enough points are available
+        if len(src_pts_filtered) >= 4:
+            success, rvec, tvec = cv2.solvePnP(dst_pts_3D_filtered, src_pts_filtered, mtx1, dist1)
+            if success:
+                print(f"Rotation Vector: {rvec}\nTranslation Vector: {tvec}")
 
-    write_ply("filtered_point_cloud.ply", filtered_points, filtered_colors)
-
-    # Display
+    # Display results
     cv2.imshow("Feature Matches", matched_image)
     cv2.imshow("Disparity Map", disparity_visual)
     cv2.imshow('Rectified Left', rectified1)
