@@ -153,21 +153,51 @@ while True:
                 pose = Pose3(Rot3(R_mat), Point3(tvec[0], tvec[1], tvec[2]))
                 
                 # Add prior and odometry to GTSAM
-                graph.add(gtsam.PriorFactorPose3(pose_id, pose, gtsam.noiseModel.Isotropic.Sigma(6, 0.1)))
-                initial_estimate.insert(pose_id, pose)
+                if pose_id == 0:
+                    graph.add(gtsam.PriorFactorPose3(pose_id, pose, gtsam.noiseModel.Isotropic.Sigma(6, 0.1)))
+                    initial_estimate.insert(pose_id, pose)
                 
                 # Increment pose ID for next estimation
                 pose_id += 1
 
                 # Add loop closure logic (example using nearest neighbor)
-                if pose_id > 1:
-                    for id in range(pose_id - 1):
-                        if np.linalg.norm(np.array([tvec[0], tvec[1]]) - np.array(initial_estimate.atPose3(id).translation().toArray()[:2])) < 0.5:
-                            graph.add(gtsam.BetweenFactorPose3(id, pose_id, pose.between(initial_estimate.atPose3(id)), gtsam.noiseModel.Isotropic.Sigma(6, 0.1)))
+                if pose_id > 0:
+                    previous_pose = initial_estimate.atPose3(pose_id - 1)
+                    odometry = previous_pose.between(pose)
+                    graph.add(gtsam.BetweenFactorPose3(pose_id - 1, pose_id, odometry, odometry_noise))
+
+                # Loop closure detection
+                for id in range(pose_id):
+                    other_pose = initial_estimate.atPose3(id)
+                    translation_diff = np.linalg.norm(np.array([tvec[0], tvec[1]]) - other_pose.translation()[:2])
+                    rotation_diff = np.arccos((Rot3(R_mat).matrix()[:2, :2] * other_pose.rotation().matrix()[:2, :2]).trace() / 2)
+
+                    if translation_diff < translation_threshold and rotation_diff < rotation_threshold:
+                        loop_closure_odometry = pose.between(other_pose)
+                        graph.add(gtsam.BetweenFactorPose3(id, pose_id, loop_closure_odometry, loop_closure_noise))
                 
+                # Add the pose to the initial estimate
+                frame_points_3D = dst_pts_3D_filtered
+                initial_estimate.insert(pose_id, pose)
+                pose_id += 1
+
                 # Optimize the graph
                 optimizer = gtsam.LevenbergMarquardtOptimizer(graph, initial_estimate)
                 result = optimizer.optimize()
+                
+               for pose_id in range(len(result)):
+    # Retrieve the pose from the optimized result
+                   pose = result.atPose3(pose_id)
+                   translation = pose.translation()
+                   rotation = pose.rotation().matrix()
+
+    # Use the optimized pose to transform the 3D points from each frame
+        for point in frame_points_3D[pose_id]:  # frame_points_3D should contain 3D points for each frame
+        # Transform the point using the pose's rotation and translation
+            transformed_point = rotation @ point + translation
+
+        # Store the transformed point in the point cloud data list
+            point_cloud_data.append(transformed_point)
                 
                 # Display results (optional)
                 for i in range(pose_id):
@@ -189,15 +219,14 @@ cap2.release()
 cv2.destroyAllWindows()
 
 # Generate and save the PLY file
-def save_point_cloud(points, filename):
+def save_point_cloud(points, colors, filename):
     points = np.array(points)
-    colors = np.zeros_like(points)  # Optional: Assign colors if needed
-    colors[:, 0] = 255  # Set all points to red for visualization
+    colors = np.array(colors) / 255.0  # Normalize colors to [0, 1] range
 
     # Create Open3D point cloud object
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points)
-    pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)  # Normalize colors
+    pcd.colors = o3d.utility.Vector3dVector(colors)  # Normalize colors
 
     # Save to .PLY file
     o3d.io.write_point_cloud(filename, pcd)
