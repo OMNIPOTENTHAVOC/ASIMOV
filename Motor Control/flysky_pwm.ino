@@ -17,31 +17,31 @@ void setup() {
 }
 
 void loop() {
-    // Read the PWM signal from the receiver
+    //PWM signal from the receiver
     pwmValue = pulseIn(ch1Pin, HIGH, 25000);  // Reads pulse width in microseconds
 
-    if (pwmValue > 1000 && pwmValue < 2000) {  // Ensure PWM signal is within a valid range
+    if (pwmValue > 1000 && pwmValue < 2000) {  //valid PWM range
         // Map the PWM signal from receiver to motor speed and direction
         int motorSpeed = map(abs(pwmValue - 1500), 0, 500, 0, 255);
 
         if (pwmValue > 1500) {
-            digitalWrite(motorDirPin, HIGH);  // Set direction to forward
+            digitalWrite(motorDirPin, HIGH);  //forward
         } else if (pwmValue < 1500) {
-            digitalWrite(motorDirPin, LOW);   // Set direction to reverse
+            digitalWrite(motorDirPin, LOW);   //reverse
         }
 
-        // Control motor speed
+        //ctrl motor speed
         analogWrite(motorPWMPin, motorSpeed);
 
-        // Debugging: print the PWM value and motor speed
+        //print the PWM value and motor speed
         Serial.print("PWM: ");
         Serial.print(pwmValue);
         Serial.print(" -> Motor Speed: ");
         Serial.println(motorSpeed);
     } else {
-        // Stop the motor if the signal is out of range
+        //Signal is out of range, stop
         analogWrite(motorPWMPin, 0);
     }
 
-    delay(20);  // Small delay for stability
+    delay(20);
 }
