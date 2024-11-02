@@ -167,10 +167,10 @@ while True:
                     graph.add(gtsam.BetweenFactorPose3(pose_id - 1, pose_id, odometry, odometry_noise))
 
                 # Loop closure detection
-                for id in range(pose_id):
-                    other_pose = initial_estimate.atPose3(id)
-                    translation_diff = np.linalg.norm(np.array([tvec[0], tvec[1]]) - other_pose.translation()[:2])
-                    rotation_diff = np.arccos((Rot3(R_mat).matrix()[:2, :2] * other_pose.rotation().matrix()[:2, :2]).trace() / 2)
+                 for id in range(pose_id):
+                     other_pose = initial_estimate.atPose3(id)
+                     translation_diff = np.linalg.norm(np.array([tvec[0], tvec[1]]) - other_pose.translation()[:2])
+                     rotation_diff = np.arccos((Rot3(R_mat).matrix()[:2, :2] * other_pose.rotation().matrix()[:2, :2]).trace() / 2)
 
                     if translation_diff < translation_threshold and rotation_diff < rotation_threshold:
                         loop_closure_odometry = pose.between(other_pose)
