@@ -8,8 +8,6 @@ ser = serial.Serial('PORT', 115200)
 time.sleep(2)
 # EKF Initialization
 dt = 0.1  # Time step (seconds)
-
-# Initialize the EKF
 ekf = EKF(dim_x=5, dim_z=5)  # State: [x, y, vx, vy, theta]
 
 # Initial state
