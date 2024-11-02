@@ -6,7 +6,7 @@ from matplotlib.animation import FuncAnimation
 ser = serial.Serial('COM3', 115200)
 plt.style.use('fivethirtyeight')
 
-#lists to hold sensor data
+#lists for sensor data
 time_data = []
 mq135_data = []
 ammonia_data = []
@@ -18,7 +18,7 @@ def update(frame):
         values = line.split(',')
         
         try:
-            # Append new data to lists
+            #append new data
             mq135_value = int(values[0])
             ammonia_value = float(values[1])
             co2_value = float(values[2])
@@ -63,7 +63,7 @@ def update(frame):
             plt.xlabel('Time (seconds)')
 
         except (ValueError, IndexError):
-            # Handle errors
+            #handle errors
             print("Data format error. Please check the output from the Arduino.")
     
 #animation
