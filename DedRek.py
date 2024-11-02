@@ -1,13 +1,14 @@
+
 import numpy as np
 from filterpy.kalman import ExtendedKalmanFilter
 import time
 import matplotlib.pyplot as plt
 
-# Start and end coordinates
-s_lat, s_lon = 34.0522, -118.2437  # Start: Los Angeles
-e_lat, e_lon = 34.0525, -118.2430  # End: Slightly north and east
 
-n_steps = 20  # Number of steps
+s_lat, s_lon = 34.0522, -118.2437  
+e_lat, e_lon = 34.0525, -118.2430 
+
+n_steps = 20  
 lat_step = (e_lat - s_lat) / n_steps
 lon_step = (e_lon - s_lon) / n_steps
 
@@ -38,10 +39,20 @@ def Jh(state):
                      [0, 0, 1, 0]])
 
 def sim_gps(step):
-    return (s_lon + lon_step * step, s_lat + lat_step * step)
+    gps_lon = s_lon + lon_step * step
+    gps_lat = s_lat + lat_step * step
+    
+    
+    gps_lon += np.random.normal(0, 0.00005)
+    gps_lat += np.random.normal(0, 0.00005)
+    
+    return gps_lon, gps_lat
 
 def sim_mpu():
-    return 0.0, 0.0
+   
+    ax_noise = np.random.normal(0, 0.01)
+    ay_noise = np.random.normal(0, 0.01)
+    return ax_noise, ay_noise
 
 def dr(ax, ay, dt, vx, vy, x, y):
     vx += ax * dt
@@ -81,15 +92,32 @@ for step in range(n_steps):
 
 print("Goal reached!")
 
-# Visualization
+
+# Plot the estimated path with noise
 lats, lons = zip(*est_pos)
-plt.plot(lons, lats, marker='o', label='Estimated Path')
+plt.figure()
+plt.plot(lons, lats, marker='o', label='Estimated Path with Noise')
 plt.plot(s_lon, s_lat, 'go', label='Start')
 plt.plot(e_lon, e_lat, 'ro', label='End')
 plt.plot([s_lon, e_lon], [s_lat, e_lat], 'b--', label='Straight Line')
-plt.title('Path from Start to Goal')
+plt.title('Path from Start to Goal with Noise')
 plt.xlabel('Longitude')
 plt.ylabel('Latitude')
 plt.legend()
 plt.grid()
+
+# Plot from dead reckoning
+ideal_lons = [s_lon + lon_step * step for step in range(n_steps)]
+ideal_lats = [s_lat + lat_step * step for step in range(n_steps)]
+plt.figure()
+plt.plot(ideal_lons, ideal_lats, marker='o', linestyle='-', color='green', label='Corrected Path')
+plt.plot(s_lon, s_lat, 'go', label='Start')
+plt.plot(e_lon, e_lat, 'ro', label='End')
+plt.plot([s_lon, e_lon], [s_lat, e_lat], 'b--', label='Actual Path')
+plt.title('Path Based on Dead Reckoning')
+plt.xlabel('Longitude')
+plt.ylabel('Latitude')
+plt.legend()
+plt.grid()
+
 plt.show()
