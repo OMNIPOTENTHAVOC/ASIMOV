@@ -35,7 +35,7 @@ def update(frame):
                 ammonia_data.pop(0)
                 co2_data.pop(0)
 
-            # Clear the current plot
+            #clear current plot
             plt.clf()
 
             # Plotting
