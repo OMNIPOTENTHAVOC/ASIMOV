@@ -6,6 +6,10 @@ const int MOTOR_BW = 10;  // Backward
 const int ACTUATOR_DIR = 4;
 const int ACTUATOR_PWM = 2;
 
+// Current coordinates of the rover
+float currentX = 0.0;
+float currentY = 0.0;
+
 void setup() {
     Serial.begin(9600);
     
@@ -68,27 +72,29 @@ void move_rover_to_target(float targetX, float targetY) {
 void forward() {   
     digitalWrite(MOTOR_FW, HIGH);
     digitalWrite(MOTOR_BW, LOW);
-    delay(1000);  
+    delay(1000);
+    currentX += 1.0;  // Update position as needed based on movement
 }
 
 void backward() {    
     digitalWrite(MOTOR_FW, LOW);
     digitalWrite(MOTOR_BW, HIGH);
-    delay(1000); 
+    delay(1000);
+    currentX -= 1.0;  // Update position as needed based on movement
 }
 
 void left() {
-    // Adjust timing or additional logic for turning if needed
     digitalWrite(MOTOR_FW, LOW);
     digitalWrite(MOTOR_BW, HIGH);
     delay(500);  
+    currentY -= 1.0;  // Adjust as needed based on turning
 }
 
 void right() {
-    // Adjust timing or additional logic for turning if needed
     digitalWrite(MOTOR_FW, HIGH);
     digitalWrite(MOTOR_BW, LOW);
     delay(500);  
+    currentY += 1.0;  // Adjust as needed based on turning
 }
 
 void stop_motors() {
@@ -96,8 +102,8 @@ void stop_motors() {
     digitalWrite(MOTOR_BW, LOW);
 }
 
-bool reached_target(float currentX, float currentY) {
-    return true;
+bool reached_target(float targetX, float targetY) {
+    return (abs(targetX - currentX) < 0.1 && abs(targetY - currentY) < 0.1);
 }
 
 void collect_soil() {
