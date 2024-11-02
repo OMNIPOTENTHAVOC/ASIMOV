@@ -64,7 +64,7 @@ def update(frame):
 
         except (ValueError, IndexError):
             #handle errors
-            print("Data format error. Please check the output from the Arduino.")
+            print("Error. Please check the output.")
     
 #animation
 ani = FuncAnimation(plt.gcf(), update, interval=1000)
