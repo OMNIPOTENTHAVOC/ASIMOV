@@ -1,10 +1,8 @@
 // Cytron Motor Driver Pins
-const int MOTOR_A_DIR = 9;
-const int MOTOR_A_PWM = 10;
-const int MOTOR_B_DIR = 7;
-const int MOTOR_B_PWM = 5;
+const int MOTOR_FW = 9;   // Forward
+const int MOTOR_BW = 10;  // Backward
 
-// Actuator Pins
+// Actuator Pins (optional)
 const int ACTUATOR_DIR = 4;
 const int ACTUATOR_PWM = 2;
 
@@ -12,10 +10,8 @@ void setup() {
     Serial.begin(9600);
     
     // Set up motor driver pins
-    pinMode(MOTOR_A_DIR, OUTPUT);
-    pinMode(MOTOR_A_PWM, OUTPUT);
-    pinMode(MOTOR_B_DIR, OUTPUT);
-    pinMode(MOTOR_B_PWM, OUTPUT);
+    pinMode(MOTOR_FW, OUTPUT);
+    pinMode(MOTOR_BW, OUTPUT);
     
     // Set up actuator pins
     pinMode(ACTUATOR_DIR, OUTPUT);
@@ -70,40 +66,34 @@ void move_rover_to_target(float targetX, float targetY) {
 }
 
 void forward() {   
-    digitalWrite(MOTOR_A_DIR, HIGH);
-    analogWrite(MOTOR_A_PWM, 200); 
-    digitalWrite(MOTOR_B_DIR, HIGH);
-    analogWrite(MOTOR_B_PWM, 200);  
+    digitalWrite(MOTOR_FW, HIGH);
+    digitalWrite(MOTOR_BW, LOW);
     delay(1000);  
 }
 
 void backward() {    
-    digitalWrite(MOTOR_A_DIR, LOW);
-    analogWrite(MOTOR_A_PWM, 200);  
-    digitalWrite(MOTOR_B_DIR, LOW);
-    analogWrite(MOTOR_B_PWM, 200); 
+    digitalWrite(MOTOR_FW, LOW);
+    digitalWrite(MOTOR_BW, HIGH);
     delay(1000); 
 }
 
 void left() {
-    digitalWrite(MOTOR_A_DIR, LOW);
-    analogWrite(MOTOR_A_PWM, 200);  
-    digitalWrite(MOTOR_B_DIR, HIGH);
-    analogWrite(MOTOR_B_PWM, 200);  
-    delay(1000);  
+    // Adjust timing or additional logic for turning if needed
+    digitalWrite(MOTOR_FW, LOW);
+    digitalWrite(MOTOR_BW, HIGH);
+    delay(500);  
 }
 
 void right() {
-    digitalWrite(MOTOR_A_DIR, HIGH);
-    analogWrite(MOTOR_A_PWM, 200); 
-    digitalWrite(MOTOR_B_DIR, LOW);
-    analogWrite(MOTOR_B_PWM, 200); 
-    delay(1000);  
+    // Adjust timing or additional logic for turning if needed
+    digitalWrite(MOTOR_FW, HIGH);
+    digitalWrite(MOTOR_BW, LOW);
+    delay(500);  
 }
 
 void stop_motors() {
-    analogWrite(MOTOR_A_PWM, 0);
-    analogWrite(MOTOR_B_PWM, 0);
+    digitalWrite(MOTOR_FW, LOW);
+    digitalWrite(MOTOR_BW, LOW);
 }
 
 bool reached_target(float currentX, float currentY) {
