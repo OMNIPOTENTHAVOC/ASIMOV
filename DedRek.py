@@ -6,7 +6,7 @@ import serial
 import pynmea2
 import matplotlib.pyplot as plt
 
-# Initialize Kalman Filter
+#Kalman Filter
 ekf = ExtendedKalmanFilter(dim_x=4, dim_z=2)
 ekf.x = np.array([0, 0, 0, 0])  # Initial state: [lon, vx, lat, vy]
 ekf.P *= 1000  # Initial uncertainty
@@ -33,9 +33,8 @@ def Jh(state):
     return np.array([[1, 0, 0, 0],
                      [0, 0, 1, 0]])
 
-# Placeholder for getting real-time GPS data
+#getting real-time GPS data
 def get_gps_data():
-    # Adjust the port and baud rate for your GPS module
     with serial.Serial('/dev/ttyUSB0', 9600, timeout=1) as ser:
         while True:
             line = ser.readline().decode('ascii', errors='replace')
@@ -44,12 +43,12 @@ def get_gps_data():
                 if msg.latitude and msg.longitude:
                     return msg.longitude, msg.latitude
 
-# Placeholder for getting real-time IMU data
+#getting real-time IMU data
 MPU6050_ADDR = 0x68
 ACCEL_XOUT_H = 0x3B
 ACCEL_YOUT_H = 0x3D
 
-# Initialize I2C
+#I2C
 bus = smbus2.SMBus(1)  # 1 for Raspberry Pi's default I2C bus
 
 def read_word_2c(addr):
@@ -63,21 +62,21 @@ def get_imu_data():
     ay = read_word_2c(ACCEL_YOUT_H) / 16384.0
     return ax, ay
 
-vx, vy, x, y = 0, 0, 0, 0  # Initial velocities and positions
+vx, vy, x, y = 0, 0, 0, 0  #init. vel and pos
 last_time = time.time()
 
 try:
     while True:
-        # Fetch real-time GPS and IMU data
+        #real-time GPS and IMU data
         gps_x, gps_y = get_gps_data()
         ax, ay = get_imu_data()
 
-        # Calculate delta time
+        #calculate delta time
         curr_time = time.time()
         dt = curr_time - last_time
         last_time = curr_time
 
-        # Dead reckoning based on IMU
+        # Dedrek based on IMU
         dr_x, dr_y, dr_vx, dr_vy = x + vx * dt + 0.5 * ax * dt ** 2, \
                                    y + vy * dt + 0.5 * ay * dt ** 2, \
                                    vx + ax * dt, \
@@ -88,12 +87,12 @@ try:
         ekf.x = f(ekf.x, dt)
         ekf.predict()
 
-        # Use GPS data for the measurement
+        #GPS data for the measurement
         z = np.array([gps_x, gps_y])
         ekf.H = Jh(ekf.x)
         ekf.update(z, HJacobian=Jh, Hx=h)
 
-        # Update position and velocity estimates
+        #pos and vel estimate updates
         x, vx, y, vy = ekf.x
         est_pos.append((y, x))
         print(f"Estimated Position: Latitude = {y:.6f}, Longitude = {x:.6f}")
@@ -101,7 +100,7 @@ try:
         # Update dead reckoning for next iteration
         vx, vy, x, y = dr_vx, dr_vy, dr_x, dr_y
 
-        time.sleep(0.1)  # Adjust rate as needed
+        time.sleep(0.1)  #rate adjustment
 
 except KeyboardInterrupt:
     print("Process interrupted.")
