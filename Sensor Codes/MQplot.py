@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.animation import FuncAnimation
 
-ser = serial.Serial('COM3', 115200)
+ser = serial.Serial('my_port', 115200)
 plt.style.use('fivethirtyeight')
 
 #lists for sensor data
